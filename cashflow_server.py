@@ -63,7 +63,7 @@ class Loan(BaseModel):
     def _payment_per_period_calc(self) -> Decimal:
         '''
         This function is called a single time on instantiation of this object.
-        It solves for APY using the following formula:
+        It solves for fixed payment per period (month) using the following formula:
                r (1 + r) ^ n
         A = P ---------------
               (1 + r) ^ n - 1
