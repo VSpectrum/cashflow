@@ -1,20 +1,20 @@
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ValidationError, validator
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, ValidationError, validator
 from decimal import Decimal
-from typing import List
+from typing import List  
 
 
 ## MODELS
-class PaymentPeriod:
+class PaymentPeriod(BaseModel):
+    '''
+    Eventually is auto-serialized to represent JSON-blob in the Loan.payment_plan list
+    '''
     month: int = 1
-    starting_balance: Decimal = 0
-    fixed_payment: Decimal = 0
-    interest_payment: Decimal = 0
-    principal_payment: Decimal = 0
-    ending_balance: Decimal = 0
-    total_interest: Decimal = 0
+    starting_balance: Decimal = Field(Decimal(0), alias='starting-balance')  # alias maps field name to desired format when obj is serialized
+    fixed_payment: Decimal = Field(Decimal(0), alias='fixed-payment')
+    interest_payment: Decimal = Field(Decimal(0), alias='interest-payment')
+    principal_payment: Decimal = Field(Decimal(0), alias='principal-payment')
+    ending_balance: Decimal = Field(Decimal(0), alias='ending-balance')
+    total_interest: Decimal = Field(Decimal(0), alias='total-interest')
 
     def monetize(self):
         '''
@@ -24,22 +24,19 @@ class PaymentPeriod:
         '''
         for field, val in self.__dict__.items():
             if isinstance(val, Decimal):
-                setattr(self, field, val.quantize(Decimal('.01')))
+                setattr(self, field, val.quantize(Decimal('.01')))  # rounding to nearest cent
         return self
                 
 
 class Loan(BaseModel):
+    '''
+    This is instantiated with Principal, interest_rate and term_years.
+    Using these inputs, a payment_plan can generated
+    '''
     principal: Decimal  # Decimal to avoid rounding errors. Principal aka loan amount
     interest_rate: Decimal  # percent input describing rate @ yearly interval
     term_years: int  # years loan is expected to be paid over
-    
-    payment_per_period: Decimal = 0  # setting default val makes this field not required in init
-    # instead of extending Loan, the payment/period is considered as a property of the Loan
-    
-    def __init__(self, *args, **kwargs):
-        super(Loan, self).__init__(*args, **kwargs)  # extending upon original init method (inherited from BaseModel)
-        self.payment_per_period = self._payment_per_period_calc()
-
+        
     ### VALIDATION
     @validator('principal')
     def valid_principal(cls, _principal):
@@ -62,8 +59,7 @@ class Loan(BaseModel):
     ### BUSINESS LOGIC
     def _payment_per_period_calc(self) -> Decimal:
         '''
-        This function is called a single time on instantiation of this object.
-        It solves for fixed payment per period (month) using the following formula:
+        This func solves for fixed payment per period (month) using the following formula:
                r (1 + r) ^ n
         A = P ---------------
               (1 + r) ^ n - 1
@@ -78,18 +74,24 @@ class Loan(BaseModel):
         denominator = (1 + r)**n - 1  # if r or n is 0, we will get division by 0
         return  numerator / denominator
         
-    def payment_plan(self) -> List[PaymentPeriod]:
+    async def payment_plan(self) -> List[PaymentPeriod]:
+        '''
+        Using the 3 variables that instantiated this object, along with the fixed payment per period
+        calculated shortly after instantiation, we build a list of what monthly payments will look like
+        and the breakdown of the different payments
+        '''
+        fixed_payment_per_period = self._payment_per_period_calc()
         period_list = [PaymentPeriod() for _ in range(self.term_years * 12)]  # init all blobs for period into a list
         interest_per_month = self.interest_rate / 100 / 12
 
-        previous_balance = self.principal  # inital val
+        previous_balance = self.principal  # initial val is principal
         rolling_sum_interest = Decimal('0')
         for month_num, period_obj in enumerate(period_list, start = 1):
             period_obj.month = month_num
             period_obj.starting_balance = previous_balance
-            period_obj.fixed_payment = self.payment_per_period
+            period_obj.fixed_payment = fixed_payment_per_period
             period_obj.interest_payment = previous_balance * interest_per_month
-            period_obj.principal_payment = self.payment_per_period - period_obj.interest_payment
+            period_obj.principal_payment = fixed_payment_per_period - period_obj.interest_payment
             
             previous_balance -= period_obj.principal_payment
             period_obj.ending_balance = previous_balance
@@ -99,29 +101,3 @@ class Loan(BaseModel):
             period_list[month_num-1] = period_obj.monetize()
 
         return period_list
-        
-
-## SETTINGS
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)  # allowing api to be publicly accessible by anyone (domain-name restrictions to be applied here)
-templates = Jinja2Templates(directory="templates")
-
-
-## CONTROLLERS
-@app.post("/loan/")
-async def loan_generator(loan: Loan):
-    return loan.payment_plan()
-
-@app.get("/all")
-async def get_all():
-    return 0
-
-@app.get("/")
-async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request,})
