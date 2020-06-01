@@ -1,6 +1,199 @@
-<head>
-</head>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cashflow - PeerIQ</title>
 
-<body>
-Test
+    <link href="static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/css/datatables.min.css" rel="stylesheet">
+    <link href="static/css/datatables.min.css" rel="stylesheet">
+    <link href="static/css/fixedHeader.dataTables.min.css" rel="stylesheet">
+
+    <style>
+        .input-area, .output-area {
+            margin-top: 70px;
+        }
+        .output-area {
+            display: none;
+        }
+        .error {
+            border: 2px solid red;
+            border-radius: 7px;
+            box-shadow: 0 0 10px lightcoral;
+        }
+        .error-background {
+            background-color: lightpink;
+        }
+
+    </style>
+    
+  </head>
+  <body>
+    <div class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header text-center error-background">
+              <h5 class="modal-title w-100">Error</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p id="errorText"></p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="container input-area">
+        <div class="row justify-content-md-center">
+        <div class="col-md-6">
+        <form id="loanForm" class="form loan-form">
+            <div class="text-center mb-4">
+              <h1 class="h3 mb-3 font-weight-normal">Loan Payment Plan Generator</h1>
+              <p>Enter non-zero values for the fields below for:<br/>Principal (Loan Amount), Interest Rate per Year (%), and Term (years)</p>
+            </div>
+          
+            <div class="form-label-group">
+              <input type="number" step="any" name="principal" class="form-control" placeholder="1000" min="1" required autofocus>
+              <label for="principal">Principal</label>
+            </div>
+          
+            <div class="form-label-group">
+              <input type="number" step="any" name="interest_rate" class="form-control" placeholder="3.625" min="1" required>
+              <label for="interest_rate">Interest per Year (%)</label>
+            </div>
+          
+            <div class="form-label-group">
+                <!-- max="30" should be used, but for sake of modal demonstration as per request we allow max to be erroneous -->
+                <input type="number" name="term_years" class="form-control" placeholder="5" min="1" max="40" step="1" required>
+                <label for="term">Term (years)</label>
+              </div>
+    
+            <button class="btn btn-lg btn-primary btn-block" type="submit">Generate Payment Plan</button>
+          </form>
+        </div>
+        </div>
+      </div>
+
+      <div class="container output-area">
+        <table id="payment_plan_table" class="display" width="100%">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Starting Balance</th>
+                    <th>Fixed Payment</th>
+                    <th>Interest</th>
+                    <th>Principal</th>
+                    <th>Ending Balance</th>
+                    <th>Cumulative Interest</th>
+                </tr>
+            </thead>
+        </table>
+      </div>
+
+      <script src="static/js/bootstrap_jq.min.js"></script>
+      <script src="static/js/bootstrap.min.js"></script>
+      <script src="static/js/datatables.min.js"></script>
+      <script src="static/js/dataTables.fixedHeader.min.js"></script>
+
+      <script>
+          function isValidLoan(loan_inputs) {
+                $('.error').removeClass('error');
+                let isValid = true;
+
+                for (let [key, value] of Object.entries(loan_inputs)) {
+                    if (value <= 0) {
+                        $(`input[name="${key}"`).addClass('error');
+                        isValid = false;
+                    }
+                }
+                  
+                // comment out the below if condition to test validation from back-end (surfacing to front-end)
+                // handle term_years exclusively as per described in instructions (if term_years > 30, show modal)
+                if (loan_inputs['term_years'] > 30) {
+                    $(`input[name="term_years"`).addClass('error');
+                    $('#errorText').text("Term (years) needs to be an integer that is less than 30.");
+                    $('.modal').modal('show');
+                    isValid = false;
+                }
+                        
+                return isValid
+          }
+
+          $('#loanForm').submit(function(e){
+                e.preventDefault();     
+
+                let loan_inputs = {};
+                $.each($("#loanForm").serializeArray(), function(i, field) {
+                    loan_inputs[field.name] = field.value;
+                });
+
+                if (isValidLoan(loan_inputs)) {
+                    $.ajax({
+                        url:'/loan/',
+                        type:"POST",
+                        timeout: 8000,
+                        data: JSON.stringify(loan_inputs),
+                        contentType:"application/json; charset=utf-8",
+                        dataType:"json",
+                        success: function(payment_plan_data){
+                            $(document).trigger('payment_plan_loaded', [payment_plan_data]);
+                        },
+                        error: function(xhr, textStatus, errorThrown){      
+                            let error_msg = "";
+                            if (xhr.statusText == "timeout") {
+                                error_msg = "Response took longer than expected and timed out.";
+                            }
+                            else {
+                                // showing validation error from backend    
+                                error_msg = xhr.responseJSON.detail[0].msg;           
+                            }
+                            $('#errorText').text(error_msg);
+                            $('.modal').modal('show');
+                        }
+                    })
+                }
+
+          });
+
+        $(document).on('payment_plan_loaded', function(event, plan_data) {
+            
+            let plan_fields = [];
+            for (let [key, value] of Object.entries(plan_data[0])) {
+                if (key != "month") {
+                    plan_fields.push({
+                        "data": String(key),
+                        "render": $.fn.dataTable.render.number( ',', '.', 2, '' )
+                    });
+                }
+                else {
+                    plan_fields.push({"data": String(key)});
+                }
+            }
+            
+            $('#payment_plan_table').DataTable({
+                data: plan_data,
+                columns: plan_fields,
+                fixedHeader: {
+                    header: true,
+                },
+                aLengthMenu: [
+                    [25, 50, 100, 200, -1],
+                    [25, 50, 100, 200, "All"]
+                ],
+                iDisplayLength: -1
+            });
+
+            $('.input-area').fadeOut('fast');
+            $('.output-area').fadeIn('slow');
+
+        });
+      </script>
+
 </body>
+</html>
