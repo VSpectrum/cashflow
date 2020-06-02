@@ -80,18 +80,18 @@ While it may be tempting to simply perform the calculation leveraging python dic
 
 The controller.py is the equivalent to a urls.py (if from a Django background). Here is where routing is handled. Due to the small scope of the app, we only have 2 views; one providing the landing page, the other being the endpoint used for performing the payment plan calculations.
 
-Tests.py is where we leverage pytest to help automate the running of tests. Currently we there are tests that ensure the validations work as expected and the calculations for base cases work as expected. We can further extend these tests for edge-case testing.
+tests.py is where we leverage pytest to help automate the running of tests. Currently there are tests that ensure the validations work as expected and the calculations for base cases work as expected. We can further extend these tests for edge-case testing.
 
 #### config
-In config's settings.py we describe some further settings of this project, such as where templates (html) files are found, staticfiles (js, css, imgs) would be found, and also security settings.
+In config's settings.py we describe some further settings of this project, such as where templates (html) files are found, staticfiles (js, css, imgs) would be found, as well as security and interface settings.
 
-Currently for the sake of demo-ing CORs is disabled and the API can be used without any domains whitelisted.
+Currently for the sake of demo-ing CORs is disabled and the API can be used without any domain names whitelisted.
 
 #### templates
-The layout is found here. A single view has been leveraged (producing a single-page) which aids in preventing reloading of resources (assuming it is not optimized by remaining cached in user browser).
+The layout is found here. A single view has been leveraged (producing a single-page app) which aids in preventing reloading of resources (assuming it is not optimized by remaining cached in user browser).
 
 #### static
-Customized js and css can be found in their respective directories in the cashflow.js and cashflow.css files. By leveraging bootstrap, minimal frontend custom work needed to be done (though this requires loading bootstrap+jquery which might be considered an expensive network call)
+Customized js and css can be found in their respective directories in the cashflow.js and cashflow.css files. By leveraging bootstrap, minimal frontend custom work needed to be done (though this requires loading bootstrap+jquery which might be considered an expensive network call).
 
 
 ## Running the project
@@ -141,7 +141,7 @@ The cmd above creates a virtualenv named cashflow-env
 ```shell
 $ source cashflow-env/bin/activate
 ```
-For a *nix based pc, the above would apply/enable the environment so that it uses the virtualenv's Python instead of your system-wide Python.
+For a *nix based pc, the above would apply/enable the environment so that it uses the virtualenv's Python instead of the system-wide Python.
 
 ```shell
 (cashflow-env) $ python3 -m pip install requirements.txt
