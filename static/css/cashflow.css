@@ -1,0 +1,17 @@
+.input-area, .output-area {
+    margin-top: 70px;
+}
+.output-area {
+    display: none;
+}
+.error {
+    border: 2px solid red;
+    border-radius: 7px;
+    box-shadow: 0 0 10px lightcoral;
+}
+.error-background {
+    background-color: lightpink;
+}
+.show-input {
+    margin-bottom: 10px;
+}
