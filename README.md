@@ -39,7 +39,7 @@ A database or caching mechanism (memcached/redis) does not seem necessary given 
 This also ruled out needing to leverage larger frameworks like Django, Pyramid, RoR. 
 Flask/Falcon/Starlette/Bottle/Go/ExpressJS and other micro-frameworks might appear as a more suitable fit for these requirements. Consequently, FastAPI which leverages asyncio (enabling multi-threading / asynchronous views) was selected to explore this problem with, as well providing a great convenience by auto-generating docs (accessible via /docs URL) which is akin to Swagger.
 
-Sending data via POST (over GET) was selected to be the way the http server would receive data from the front-end. This was more out of convenience the way model objects can be auto generated on receiving a POST that is formatted as expected. The down-side to this choice is that if a user wants to share results after data-entry, it may not be easily share-able via URL. Extra work may have to be done in the front-end to accommodate results-sharing URLs (such as leveraging hash params).
+Sending data via POST (instead of GET params) was selected to be the way the http server would receive data from the front-end. This was more out of convenience: the way model objects can be auto generated on receiving a POST that is formatted as expected. The down-side to this choice is that if a user wants to share results after data-entry, it may not be easily share-able via URL. Extra functionality may have to be baked into the front-end to accommodate results-sharing URLs (such as leveraging hash params).
 
 ### Directory Design Pattern
 
